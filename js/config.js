@@ -1,7 +1,7 @@
 'use strict';
 
 // Dress-Up Dino — Keep CACHE in sw.js in sync: 'dress-up-dino-' + GAME_VERSION
-const GAME_VERSION = '1.0.002';
+const GAME_VERSION = '1.0.003';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const GAME_NAME = 'Dress-Up Dino';
 
