@@ -60,6 +60,23 @@ function outfitsEqual(a, b) {
     a.glasses === b.glasses && a.spots === b.spots;
 }
 
+/** Valid item id for a category? */
+function isValidItem(catId, itemId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return false;
+  return cat.items.some(it => it.id === itemId);
+}
+
+/** Outfit with only known ids (clamp unknown → defaults). */
+function normalizeOutfit(o) {
+  const out = Object.assign({}, DEFAULT_OUTFIT);
+  if (!o || typeof o !== 'object') return out;
+  for (const cat of CATEGORIES) {
+    if (o[cat.id] && isValidItem(cat.id, o[cat.id])) out[cat.id] = o[cat.id];
+  }
+  return out;
+}
+
 function enterMenu() {
   state = 'menu';
   clearParticles();
@@ -170,16 +187,26 @@ function rebuildHits() {
   }
 }
 
+/**
+ * Pure equip resolution (no SFX/particles). Returns next item id for the category.
+ * Re-tapping the same non-body item unequips to 'none'.
+ */
+function resolveEquip(catId, itemId, currentOutfit) {
+  if (!isValidItem(catId, itemId)) return currentOutfit[catId];
+  const cur = currentOutfit[catId];
+  if (catId !== 'body' && cur === itemId && itemId !== 'none') return 'none';
+  return itemId;
+}
+
 function equip(catId, itemId) {
-  const cur = save.outfit[catId];
-  let next = itemId;
-  // Toggle off for non-body categories when re-tapping same
-  if (catId !== 'body' && cur === itemId && itemId !== 'none') {
-    next = 'none';
-    sfxUnequip();
-  } else {
-    sfxEquip();
+  const next = resolveEquip(catId, itemId, save.outfit);
+  if (next === save.outfit[catId] && !(catId !== 'body' && itemId === save.outfit[catId])) {
+    // invalid no-op
+    if (!isValidItem(catId, itemId)) return;
   }
+  const unequipped = next === 'none' && save.outfit[catId] !== 'none';
+  if (unequipped) sfxUnequip();
+  else sfxEquip();
   setOutfitPart(catId, next);
   recordDress();
   sessionDress++;

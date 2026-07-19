@@ -1,5 +1,5 @@
 // Dress-Up Dino — bump with GAME_VERSION in js/config.js
-const CACHE = 'dress-up-dino-1.0.000';
+const CACHE = 'dress-up-dino-1.0.001';
 
 const ASSETS = [
   './',

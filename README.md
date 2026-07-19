@@ -26,6 +26,14 @@ Part of [Arcade Hub](https://jmitchell238.github.io/arcade-hub/).
 
 Static HTML / CSS / Canvas. No build step.
 
+## Tests
+
+```bash
+node tests/run.mjs
+```
+
+VM-loaded unit tests (equip/unequip, favorites, match mode, cosmetics integrity) plus PWA shell checks.
+
 ## Versioning
 
 `GAME_VERSION` in `js/config.js` ↔ `CACHE` in `sw.js`.
