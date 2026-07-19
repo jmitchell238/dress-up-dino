@@ -415,12 +415,51 @@ function drawStageBg(ctx) {
   ctx.fill();
 }
 
+/**
+ * Dino local-space anatomy (scale=1). Accessories MUST anchor to these —
+ * not free-floating magic numbers. Keep in sync with drawDino paths.
+ *
+ *   crown  ≈ top of head (under crest tips)
+ *   eyeL/R = white of each eye (center)
+ *   neck   = chin / body junction (scarf sits here)
+ *   body   = torso center
+ */
+const DINO_RIG = {
+  head:  { x: 8,  y: -48 },
+  crown: { x: 8,  y: -86 },
+  eyeL:  { x: -4, y: -58 },
+  eyeR:  { x: 22, y: -56 },
+  neck:  { x: 6,  y: -18 },
+  body:  { x: 0,  y: 10 },
+  // How far accessories may sit from their anchors (for unit tests)
+  maxEyeLensOffset: 2,
+  maxNeckBandOffset: 6,
+  maxCrownOffset: 8,
+};
+
+/** Accessory anchor in dino space (for tests + drawers). */
+function accessoryAnchor(kind) {
+  if (kind === 'glasses') {
+    return {
+      x: (DINO_RIG.eyeL.x + DINO_RIG.eyeR.x) / 2,
+      y: (DINO_RIG.eyeL.y + DINO_RIG.eyeR.y) / 2,
+      eyeL: DINO_RIG.eyeL,
+      eyeR: DINO_RIG.eyeR,
+    };
+  }
+  if (kind === 'scarf') return { x: DINO_RIG.neck.x, y: DINO_RIG.neck.y };
+  if (kind === 'hat') return { x: DINO_RIG.crown.x, y: DINO_RIG.crown.y };
+  return { x: 0, y: 0 };
+}
+
 function drawSpotsPattern(ctx, spots, scale) {
   if (!spots || spots.id === 'none') return;
   ctx.save();
+  // Spots live on the torso around body center
+  ctx.translate(DINO_RIG.body.x * scale, DINO_RIG.body.y * scale);
   if (spots.id === 'dots') {
     ctx.fillStyle = spots.color;
-    for (const [px, py, r] of [[-28, -10, 7], [24, 5, 6], [-10, 30, 5], [18, -35, 5], [-30, 40, 4]]) {
+    for (const [px, py, r] of [[-22, -18, 7], [20, -8, 6], [-8, 16, 5], [16, 22, 5], [-26, 28, 4]]) {
       ctx.beginPath();
       ctx.arc(px * scale, py * scale, r * scale, 0, Math.PI * 2);
       ctx.fill();
@@ -430,13 +469,13 @@ function drawSpotsPattern(ctx, spots, scale) {
     ctx.lineWidth = 5 * scale;
     for (let i = -2; i <= 2; i++) {
       ctx.beginPath();
-      ctx.moveTo((-40 + i * 4) * scale, (-50 + i * 18) * scale);
-      ctx.lineTo((40 + i * 4) * scale, (-20 + i * 18) * scale);
+      ctx.moveTo((-36 + i * 3) * scale, (-30 + i * 14) * scale);
+      ctx.lineTo((36 + i * 3) * scale, (-10 + i * 14) * scale);
       ctx.stroke();
     }
   } else if (spots.id === 'hearts') {
     ctx.fillStyle = spots.color;
-    for (const [px, py, s] of [[-26, -8, 0.55], [22, 12, 0.45], [-8, 36, 0.4]]) {
+    for (const [px, py, s] of [[-20, -12, 0.5], [18, 6, 0.42], [-6, 22, 0.38]]) {
       ctx.save();
       ctx.translate(px * scale, py * scale);
       ctx.scale(s * scale, s * scale);
@@ -449,7 +488,7 @@ function drawSpotsPattern(ctx, spots, scale) {
     }
   } else if (spots.id === 'stars') {
     ctx.fillStyle = spots.color;
-    for (const [px, py, s] of [[-24, -12, 7], [20, 8, 6], [-6, 34, 5]]) {
+    for (const [px, py, s] of [[-18, -14, 7], [16, 4, 6], [-4, 20, 5]]) {
       ctx.save();
       ctx.translate(px * scale, py * scale);
       ctx.beginPath();
@@ -469,194 +508,267 @@ function drawSpotsPattern(ctx, spots, scale) {
   ctx.restore();
 }
 
-function drawHat(ctx, hat, scale) {
+/**
+ * @param {{ origin?: boolean }} opts  origin=true → draw centered at 0,0 (tray icons)
+ */
+function drawHat(ctx, hat, scale, opts = {}) {
   if (!hat || hat.id === 'none') return;
+  const s = scale;
   ctx.save();
-  ctx.translate(8 * scale, -78 * scale);
+  if (!opts.origin) {
+    const a = accessoryAnchor('hat');
+    ctx.translate(a.x * s, a.y * s);
+  }
 
   if (hat.id === 'party') {
+    // Cone sits on crown; base just above forehead
     ctx.fillStyle = hat.color;
     ctx.beginPath();
-    ctx.moveTo(0, -42 * scale);
-    ctx.lineTo(28 * scale, 8 * scale);
-    ctx.lineTo(-28 * scale, 8 * scale);
+    ctx.moveTo(0, -36 * s);
+    ctx.lineTo(26 * s, 10 * s);
+    ctx.lineTo(-26 * s, 10 * s);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = hat.color2;
+    ctx.lineWidth = 2 * s;
+    ctx.stroke();
+    // Pom-pom
     ctx.fillStyle = hat.color2;
     ctx.beginPath();
-    ctx.arc(0, -44 * scale, 6 * scale, 0, Math.PI * 2);
+    ctx.arc(0, -38 * s, 7 * s, 0, Math.PI * 2);
     ctx.fill();
-    // Pom stripes
+    // Stripe
     ctx.strokeStyle = hat.color2;
-    ctx.lineWidth = 3 * scale;
+    ctx.lineWidth = 3 * s;
     ctx.beginPath();
-    ctx.moveTo(-10 * scale, -10 * scale);
-    ctx.lineTo(12 * scale, -22 * scale);
+    ctx.moveTo(-8 * s, -6 * s);
+    ctx.lineTo(10 * s, -18 * s);
     ctx.stroke();
   } else if (hat.id === 'cap') {
     ctx.fillStyle = hat.color;
-    roundRect(ctx, -30 * scale, -18 * scale, 60 * scale, 22 * scale, 8 * scale);
-    ctx.fill();
+    // Crown dome
     ctx.beginPath();
-    ctx.ellipse(0, -16 * scale, 28 * scale, 18 * scale, 0, Math.PI, 0);
+    ctx.ellipse(0, 2 * s, 30 * s, 20 * s, 0, Math.PI, 0);
     ctx.fill();
+    // Brim band
+    roundRect(ctx, -32 * s, 0, 64 * s, 14 * s, 6 * s);
+    ctx.fill();
+    // Bill
     ctx.fillStyle = hat.color2;
-    roundRect(ctx, 8 * scale, -8 * scale, 32 * scale, 10 * scale, 4 * scale);
+    roundRect(ctx, 6 * s, 4 * s, 34 * s, 11 * s, 5 * s);
     ctx.fill();
   } else if (hat.id === 'crown') {
     ctx.fillStyle = hat.color;
     ctx.beginPath();
-    ctx.moveTo(-28 * scale, 6 * scale);
-    ctx.lineTo(-28 * scale, -10 * scale);
-    ctx.lineTo(-14 * scale, 0);
-    ctx.lineTo(0, -22 * scale);
-    ctx.lineTo(14 * scale, 0);
-    ctx.lineTo(28 * scale, -10 * scale);
-    ctx.lineTo(28 * scale, 6 * scale);
+    ctx.moveTo(-30 * s, 12 * s);
+    ctx.lineTo(-30 * s, -6 * s);
+    ctx.lineTo(-16 * s, 4 * s);
+    ctx.lineTo(0, -20 * s);
+    ctx.lineTo(16 * s, 4 * s);
+    ctx.lineTo(30 * s, -6 * s);
+    ctx.lineTo(30 * s, 12 * s);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = hat.color2;
-    for (const px of [-20, 0, 20]) {
+    for (const px of [-22, 0, 22]) {
       ctx.beginPath();
-      ctx.arc(px * scale, -4 * scale, 3.5 * scale, 0, Math.PI * 2);
+      ctx.arc(px * s, -2 * s, 3.5 * s, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (hat.id === 'bow') {
+    // Big bow on top of head
     ctx.fillStyle = hat.color;
     ctx.beginPath();
-    ctx.ellipse(-18 * scale, -8 * scale, 16 * scale, 12 * scale, 0, 0, Math.PI * 2);
-    ctx.ellipse(18 * scale, -8 * scale, 16 * scale, 12 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(-18 * s, 0, 18 * s, 14 * s, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(18 * s, 0, 18 * s, 14 * s, 0.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = hat.color2;
     ctx.beginPath();
-    ctx.arc(0, -8 * scale, 7 * scale, 0, Math.PI * 2);
+    ctx.arc(0, 0, 8 * s, 0, Math.PI * 2);
     ctx.fill();
   } else if (hat.id === 'flower') {
     ctx.fillStyle = hat.color;
-    for (let i = 0; i < 5; i++) {
-      const a = i * Math.PI * 2 / 5;
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI * 2 / 6;
       ctx.beginPath();
-      ctx.ellipse(Math.cos(a) * 12 * scale, -10 * scale + Math.sin(a) * 12 * scale, 10 * scale, 8 * scale, a, 0, Math.PI * 2);
+      ctx.ellipse(Math.cos(a) * 14 * s, Math.sin(a) * 14 * s, 11 * s, 8 * s, a, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = hat.color2;
     ctx.beginPath();
-    ctx.arc(0, -10 * scale, 7 * scale, 0, Math.PI * 2);
+    ctx.arc(0, 0, 8 * s, 0, Math.PI * 2);
     ctx.fill();
   } else if (hat.id === 'beanie') {
     ctx.fillStyle = hat.color;
     ctx.beginPath();
-    ctx.ellipse(0, -6 * scale, 32 * scale, 22 * scale, 0, Math.PI, 0);
+    ctx.ellipse(0, 2 * s, 34 * s, 26 * s, 0, Math.PI, 0);
     ctx.fill();
-    roundRect(ctx, -34 * scale, -10 * scale, 68 * scale, 16 * scale, 6 * scale);
+    roundRect(ctx, -36 * s, -2 * s, 72 * s, 16 * s, 7 * s);
     ctx.fill();
+    // Pom
     ctx.fillStyle = hat.color2;
     ctx.beginPath();
-    ctx.arc(0, -28 * scale, 8 * scale, 0, Math.PI * 2);
+    ctx.arc(0, -26 * s, 9 * s, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 }
 
-function drawScarf(ctx, scarf, scale) {
+/**
+ * Scarf / bowtie — MUST sit on the neck (under chin), not the belly.
+ */
+function drawScarf(ctx, scarf, scale, opts = {}) {
   if (!scarf || scarf.id === 'none') return;
+  const s = scale;
   ctx.save();
-  ctx.translate(0, 28 * scale);
+  if (!opts.origin) {
+    const a = accessoryAnchor('scarf');
+    ctx.translate(a.x * s, a.y * s);
+  }
 
   if (scarf.id === 'bowtie') {
+    // Centered on neck/chin
     ctx.fillStyle = scarf.color;
     ctx.beginPath();
-    ctx.moveTo(-4 * scale, 0);
-    ctx.lineTo(-28 * scale, -12 * scale);
-    ctx.lineTo(-28 * scale, 12 * scale);
+    ctx.moveTo(-3 * s, 0);
+    ctx.lineTo(-26 * s, -14 * s);
+    ctx.lineTo(-26 * s, 14 * s);
     ctx.closePath();
-    ctx.moveTo(4 * scale, 0);
-    ctx.lineTo(28 * scale, -12 * scale);
-    ctx.lineTo(28 * scale, 12 * scale);
+    ctx.moveTo(3 * s, 0);
+    ctx.lineTo(26 * s, -14 * s);
+    ctx.lineTo(26 * s, 14 * s);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = scarf.color2;
     ctx.beginPath();
-    ctx.arc(0, 0, 7 * scale, 0, Math.PI * 2);
+    ctx.arc(0, 0, 7 * s, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    // Loop scarf
+    // Soft neck wrap: thick band under chin + two hanging ends down the chest
     ctx.fillStyle = scarf.color;
-    roundRect(ctx, -36 * scale, -8 * scale, 72 * scale, 18 * scale, 8 * scale);
+    // Main loop around neck (narrower than body so it reads as a collar)
+    roundRect(ctx, -30 * s, -10 * s, 60 * s, 16 * s, 9 * s);
     ctx.fill();
-    // Hanging ends
-    roundRect(ctx, 10 * scale, 6 * scale, 16 * scale, 36 * scale, 6 * scale);
+    // Knot
+    ctx.beginPath();
+    ctx.ellipse(4 * s, 4 * s, 10 * s, 8 * s, 0, 0, Math.PI * 2);
     ctx.fill();
-    roundRect(ctx, 28 * scale, 4 * scale, 14 * scale, 30 * scale, 6 * scale);
+    // Hanging tails (down the chest, not around the waist)
+    roundRect(ctx, -4 * s, 8 * s, 14 * s, 34 * s, 6 * s);
     ctx.fill();
+    roundRect(ctx, 12 * s, 10 * s, 12 * s, 28 * s, 6 * s);
+    ctx.fill();
+
     if (scarf.id === 'stripe' || scarf.id === 'stars') {
       ctx.fillStyle = scarf.color2;
       for (let i = 0; i < 3; i++) {
-        ctx.fillRect((-28 + i * 22) * scale, -4 * scale, 8 * scale, 10 * scale);
+        ctx.fillRect((-24 + i * 18) * s, -6 * s, 7 * s, 8 * s);
       }
       if (scarf.id === 'stars') {
         ctx.beginPath();
-        ctx.arc(18 * scale, 20 * scale, 4 * scale, 0, Math.PI * 2);
+        ctx.arc(3 * s, 22 * s, 4 * s, 0, Math.PI * 2);
         ctx.fill();
       }
     } else {
       ctx.strokeStyle = scarf.color2;
-      ctx.lineWidth = 2 * scale;
-      roundRect(ctx, -34 * scale, -6 * scale, 68 * scale, 14 * scale, 6 * scale);
+      ctx.lineWidth = 2 * s;
+      roundRect(ctx, -28 * s, -8 * s, 56 * s, 12 * s, 7 * s);
       ctx.stroke();
     }
   }
   ctx.restore();
 }
 
-function drawGlasses(ctx, glasses, scale) {
+/**
+ * Glasses — lenses centered on each eye.
+ */
+function drawGlasses(ctx, glasses, scale, opts = {}) {
   if (!glasses || glasses.id === 'none') return;
+  const s = scale;
   ctx.save();
-  ctx.translate(6 * scale, -28 * scale);
+
+  let eyeL = DINO_RIG.eyeL;
+  let eyeR = DINO_RIG.eyeR;
+  if (opts.origin) {
+    // Tray: place a compact pair around local origin
+    eyeL = { x: -14, y: 0 };
+    eyeR = { x: 14, y: 0 };
+  }
+
+  const lx = eyeL.x * s;
+  const ly = eyeL.y * s;
+  const rx = eyeR.x * s;
+  const ry = eyeR.y * s;
+  const lensR = 15 * s;
+
   ctx.strokeStyle = glasses.color;
   ctx.fillStyle = glasses.color;
-  ctx.lineWidth = 3.5 * scale;
+  ctx.lineWidth = 3.2 * s;
+  ctx.lineCap = 'round';
 
   if (glasses.id === 'round' || glasses.id === 'shades') {
+    // Left lens
     ctx.beginPath();
-    ctx.arc(-16 * scale, 0, 14 * scale, 0, Math.PI * 2);
-    ctx.arc(16 * scale, 0, 14 * scale, 0, Math.PI * 2);
+    ctx.arc(lx, ly, lensR, 0, Math.PI * 2);
+    // Right lens
+    ctx.arc(rx, ry, lensR, 0, Math.PI * 2);
     if (glasses.id === 'shades') {
-      ctx.fillStyle = 'rgba(20,20,30,0.75)';
+      ctx.fillStyle = 'rgba(20,20,30,0.72)';
       ctx.fill();
+      ctx.strokeStyle = glasses.color;
       ctx.stroke();
     } else {
       ctx.stroke();
+      // Clear glass shine
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      ctx.arc(lx - 4 * s, ly - 4 * s, 5 * s, -0.8, 0.4);
+      ctx.arc(rx - 4 * s, ry - 4 * s, 5 * s, -0.8, 0.4);
+      ctx.stroke();
+      ctx.strokeStyle = glasses.color;
+      ctx.lineWidth = 3.2 * s;
     }
+    // Bridge between eyes
     ctx.beginPath();
-    ctx.moveTo(-2 * scale, 0);
-    ctx.lineTo(2 * scale, 0);
+    ctx.moveTo(lx + lensR * 0.85, ly);
+    ctx.lineTo(rx - lensR * 0.85, ry);
+    ctx.stroke();
+    // Temples
+    ctx.beginPath();
+    ctx.moveTo(lx - lensR * 0.9, ly - 2 * s);
+    ctx.lineTo(lx - lensR * 1.5, ly - 6 * s);
+    ctx.moveTo(rx + lensR * 0.9, ry - 2 * s);
+    ctx.lineTo(rx + lensR * 1.5, ry - 6 * s);
     ctx.stroke();
   } else if (glasses.id === 'star') {
-    for (const ox of [-16, 16]) {
+    for (const [ex, ey] of [[lx, ly], [rx, ry]]) {
       ctx.beginPath();
       for (let i = 0; i < 5; i++) {
         const a = -Math.PI / 2 + i * Math.PI * 2 / 5;
         const a2 = a + Math.PI / 5;
-        const r = 13 * scale;
-        const cx = ox * scale;
-        if (i === 0) ctx.moveTo(cx + Math.cos(a) * r, Math.sin(a) * r);
-        else ctx.lineTo(cx + Math.cos(a) * r, Math.sin(a) * r);
-        ctx.lineTo(cx + Math.cos(a2) * r * 0.42, Math.sin(a2) * r * 0.42);
+        const r = 15 * s;
+        if (i === 0) ctx.moveTo(ex + Math.cos(a) * r, ey + Math.sin(a) * r);
+        else ctx.lineTo(ex + Math.cos(a) * r, ey + Math.sin(a) * r);
+        ctx.lineTo(ex + Math.cos(a2) * r * 0.42, ey + Math.sin(a2) * r * 0.42);
       }
       ctx.closePath();
       ctx.stroke();
     }
+    ctx.beginPath();
+    ctx.moveTo(lx + 12 * s, ly);
+    ctx.lineTo(rx - 12 * s, ry);
+    ctx.stroke();
   } else if (glasses.id === 'heart') {
     ctx.fillStyle = glasses.color;
-    for (const ox of [-16, 16]) {
+    for (const [ex, ey] of [[lx, ly], [rx, ry]]) {
       ctx.save();
-      ctx.translate(ox * scale, 0);
-      ctx.scale(scale, scale);
+      ctx.translate(ex, ey);
+      ctx.scale(s, s);
       ctx.beginPath();
-      ctx.moveTo(0, 10);
-      ctx.bezierCurveTo(-14, 0, -12, -14, 0, -4);
-      ctx.bezierCurveTo(12, -14, 14, 0, 0, 10);
+      ctx.moveTo(0, 11);
+      ctx.bezierCurveTo(-15, 0, -13, -14, 0, -5);
+      ctx.bezierCurveTo(13, -14, 15, 0, 0, 11);
       ctx.fill();
       ctx.restore();
     }
@@ -681,61 +793,62 @@ function drawDino(ctx, outfit, cx, cy, scale, opts = {}) {
   const spots = spotsOf(outfit);
   const dance = opts.dance || 0;
   const flash = opts.flash || 0;
+  const s = scale;
 
   ctx.save();
   ctx.translate(cx, cy);
   if (opts.ghost) ctx.globalAlpha = 0.45;
 
   // Dance / bob
-  const sway = dance > 0 ? Math.sin(dance * 14) * 8 * scale : Math.sin(bob) * 3 * scale;
-  const hop = dance > 0 ? Math.abs(Math.sin(dance * 12)) * 10 * scale : Math.sin(bob * 1.3) * 2 * scale;
+  const sway = dance > 0 ? Math.sin(dance * 14) * 8 * s : Math.sin(bob) * 3 * s;
+  const hop = dance > 0 ? Math.abs(Math.sin(dance * 12)) * 10 * s : Math.sin(bob * 1.3) * 2 * s;
   ctx.translate(sway, -hop);
   if (dance > 0) ctx.rotate(Math.sin(dance * 10) * 0.08);
 
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   ctx.beginPath();
-  ctx.ellipse(0, 78 * scale, 55 * scale, 14 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 78 * s, 55 * s, 14 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Tail
   ctx.fillStyle = body.fill;
   ctx.strokeStyle = body.stroke;
-  ctx.lineWidth = 3 * scale;
+  ctx.lineWidth = 3 * s;
   ctx.beginPath();
-  ctx.moveTo(-40 * scale, 20 * scale);
-  ctx.quadraticCurveTo(-90 * scale, 10 * scale, -95 * scale, -20 * scale);
-  ctx.quadraticCurveTo(-70 * scale, 5 * scale, -35 * scale, 30 * scale);
+  ctx.moveTo(-40 * s, 20 * s);
+  ctx.quadraticCurveTo(-90 * s, 10 * s, -95 * s, -20 * s);
+  ctx.quadraticCurveTo(-70 * s, 5 * s, -35 * s, 30 * s);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
   // Legs
   ctx.fillStyle = body.fill;
-  roundRect(ctx, -32 * scale, 48 * scale, 22 * scale, 32 * scale, 8 * scale);
+  roundRect(ctx, -32 * s, 48 * s, 22 * s, 32 * s, 8 * s);
   ctx.fill();
   ctx.stroke();
-  roundRect(ctx, 12 * scale, 48 * scale, 22 * scale, 32 * scale, 8 * scale);
+  roundRect(ctx, 12 * s, 48 * s, 22 * s, 32 * s, 8 * s);
   ctx.fill();
   ctx.stroke();
   // Feet
   ctx.fillStyle = body.stroke;
-  roundRect(ctx, -36 * scale, 72 * scale, 28 * scale, 12 * scale, 5 * scale);
+  roundRect(ctx, -36 * s, 72 * s, 28 * s, 12 * s, 5 * s);
   ctx.fill();
-  roundRect(ctx, 8 * scale, 72 * scale, 28 * scale, 12 * scale, 5 * scale);
+  roundRect(ctx, 8 * s, 72 * s, 28 * s, 12 * s, 5 * s);
   ctx.fill();
 
-  // Body
+  // Body (torso) — center DINO_RIG.body
   ctx.fillStyle = body.fill;
   ctx.beginPath();
-  ctx.ellipse(0, 10 * scale, 52 * scale, 58 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(DINO_RIG.body.x * s, DINO_RIG.body.y * s, 52 * s, 58 * s, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
   // Belly
   ctx.fillStyle = body.belly;
   ctx.beginPath();
-  ctx.ellipse(4 * scale, 18 * scale, 28 * scale, 34 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(4 * s, 18 * s, 28 * s, 34 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
   drawSpotsPattern(ctx, spots, scale);
@@ -743,25 +856,28 @@ function drawDino(ctx, outfit, cx, cy, scale, opts = {}) {
   // Arms
   ctx.fillStyle = body.fill;
   ctx.beginPath();
-  ctx.ellipse(-48 * scale, 5 * scale, 14 * scale, 22 * scale, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(-48 * s, 5 * s, 14 * s, 22 * s, -0.4, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.beginPath();
-  ctx.ellipse(48 * scale, 5 * scale, 14 * scale, 22 * scale, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(48 * s, 5 * s, 14 * s, 22 * s, 0.4, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Head
+  // Scarf under the chin (drawn before head so the chin overlaps the top of the band)
+  drawScarf(ctx, scarf, scale);
+
+  // Head — center DINO_RIG.head
   ctx.fillStyle = body.fill;
   ctx.beginPath();
-  ctx.ellipse(8 * scale, -48 * scale, 44 * scale, 40 * scale, 0.05, 0, Math.PI * 2);
+  ctx.ellipse(DINO_RIG.head.x * s, DINO_RIG.head.y * s, 44 * s, 40 * s, 0.05, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
   // Snout
   ctx.fillStyle = body.belly;
   ctx.beginPath();
-  ctx.ellipse(38 * scale, -38 * scale, 22 * scale, 16 * scale, 0.1, 0, Math.PI * 2);
+  ctx.ellipse(38 * s, -38 * s, 22 * s, 16 * s, 0.1, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = body.stroke;
   ctx.stroke();
@@ -769,61 +885,61 @@ function drawDino(ctx, outfit, cx, cy, scale, opts = {}) {
   // Nostrils
   ctx.fillStyle = body.stroke;
   ctx.beginPath();
-  ctx.arc(42 * scale, -42 * scale, 2.5 * scale, 0, Math.PI * 2);
-  ctx.arc(50 * scale, -40 * scale, 2.5 * scale, 0, Math.PI * 2);
+  ctx.arc(42 * s, -42 * s, 2.5 * s, 0, Math.PI * 2);
+  ctx.arc(50 * s, -40 * s, 2.5 * s, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eyes
+  // Eyes — MUST match DINO_RIG.eyeL / eyeR
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.ellipse(-4 * scale, -58 * scale, 12 * scale, 14 * scale, 0, 0, Math.PI * 2);
-  ctx.ellipse(22 * scale, -56 * scale, 12 * scale, 14 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(DINO_RIG.eyeL.x * s, DINO_RIG.eyeL.y * s, 12 * s, 14 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(DINO_RIG.eyeR.x * s, DINO_RIG.eyeR.y * s, 12 * s, 14 * s, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#2C3E50';
   ctx.beginPath();
-  ctx.arc(-1 * scale, -56 * scale, 6 * scale, 0, Math.PI * 2);
-  ctx.arc(25 * scale, -54 * scale, 6 * scale, 0, Math.PI * 2);
+  ctx.arc((DINO_RIG.eyeL.x + 3) * s, (DINO_RIG.eyeL.y + 2) * s, 6 * s, 0, Math.PI * 2);
+  ctx.arc((DINO_RIG.eyeR.x + 3) * s, (DINO_RIG.eyeR.y + 2) * s, 6 * s, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.arc(1 * scale, -58 * scale, 2.2 * scale, 0, Math.PI * 2);
-  ctx.arc(27 * scale, -56 * scale, 2.2 * scale, 0, Math.PI * 2);
+  ctx.arc((DINO_RIG.eyeL.x + 5) * s, DINO_RIG.eyeL.y * s, 2.2 * s, 0, Math.PI * 2);
+  ctx.arc((DINO_RIG.eyeR.x + 5) * s, DINO_RIG.eyeR.y * s, 2.2 * s, 0, Math.PI * 2);
   ctx.fill();
 
   // Smile
   ctx.strokeStyle = body.stroke;
-  ctx.lineWidth = 2.5 * scale;
+  ctx.lineWidth = 2.5 * s;
   ctx.beginPath();
-  ctx.arc(28 * scale, -32 * scale, 12 * scale, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.arc(28 * s, -32 * s, 12 * s, 0.15 * Math.PI, 0.85 * Math.PI);
   ctx.stroke();
 
   // Blush
   ctx.fillStyle = 'rgba(241, 148, 138, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(-16 * scale, -40 * scale, 8 * scale, 5 * scale, 0, 0, Math.PI * 2);
-  ctx.ellipse(40 * scale, -28 * scale, 7 * scale, 4 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(-16 * s, -40 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(40 * s, -28 * s, 7 * s, 4 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Crest / spikes
+  // Crest / spikes (above crown)
   ctx.fillStyle = body.stroke;
   for (const [sx, sy, sr] of [[-10, -82, 8], [6, -88, 9], [24, -82, 7]]) {
     ctx.beginPath();
-    ctx.moveTo((sx - sr) * scale, (sy + 10) * scale);
-    ctx.lineTo(sx * scale, (sy - sr) * scale);
-    ctx.lineTo((sx + sr) * scale, (sy + 10) * scale);
+    ctx.moveTo((sx - sr) * s, (sy + 10) * s);
+    ctx.lineTo(sx * s, (sy - sr) * s);
+    ctx.lineTo((sx + sr) * s, (sy + 10) * s);
     ctx.closePath();
     ctx.fill();
   }
 
+  // Glasses on eyes, hat on crown (after head so they sit on top)
   drawGlasses(ctx, glasses, scale);
   drawHat(ctx, hat, scale);
-  drawScarf(ctx, scarf, scale);
 
   if (flash > 0) {
     ctx.globalAlpha = flash * 0.35;
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 60 * scale, 80 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 60 * s, 80 * s, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -861,14 +977,14 @@ function drawTrayThumb(ctx, catId, item, x, y, w, h, selected) {
     ctx.fill();
     ctx.stroke();
   } else if (catId === 'hat') {
-    ctx.translate(cx, cy + 16);
-    drawHat(ctx, item, 0.7);
+    ctx.translate(cx, cy + 4);
+    drawHat(ctx, item, 0.55, { origin: true });
   } else if (catId === 'scarf') {
-    ctx.translate(cx, cy);
-    drawScarf(ctx, item, 0.65);
+    ctx.translate(cx, cy - 2);
+    drawScarf(ctx, item, 0.55, { origin: true });
   } else if (catId === 'glasses') {
     ctx.translate(cx, cy);
-    drawGlasses(ctx, item, 0.85);
+    drawGlasses(ctx, item, 0.7, { origin: true });
   } else if (catId === 'spots') {
     ctx.translate(cx, cy);
     ctx.fillStyle = '#7DCEA0';

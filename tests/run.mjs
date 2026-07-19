@@ -58,6 +58,7 @@ function loadGame() {
     globalThis.__TEST__ = {
       GAME_VERSION, GAME_NAME, W, H, MODES, MODE_ORDER, CATEGORIES,
       BODY_COLORS, HATS, SCARVES, GLASSES, SPOTS, DEFAULT_OUTFIT, MAX_FAVORITES,
+      DINO_RIG, accessoryAnchor,
       outfitsEqual, isValidItem, normalizeOutfit, resolveEquip, randomOutfit,
       bodyOf, hatOf, findItem,
       equip, enterPlay, enterMenu, doSurprise, doFavorite, doShowOff,
@@ -273,6 +274,71 @@ section('doSurprise');
   for (const cat of T.CATEGORIES) {
     assert(T.isValidItem(cat.id, T.save.outfit[cat.id]), `surprise ${cat.id}`);
   }
+}
+
+// -------------------- accessory rig alignment --------------------
+// Guards against the "scarf is a belt / glasses below eyes" class of bugs.
+section('accessory anchors vs anatomy');
+{
+  const T = loadGame();
+  const R = T.DINO_RIG;
+  assert(!!R && !!R.eyeL && !!R.eyeR && !!R.neck && !!R.crown, 'DINO_RIG present');
+
+  // Eyes are on the head (above body center, near head center)
+  assert(R.eyeL.y < R.head.y + 5, 'left eye on/near head (not mid-body)');
+  assert(R.eyeR.y < R.head.y + 5, 'right eye on/near head');
+  assert(R.eyeL.y < -40, 'eyes high on face (y < -40)');
+  assert(R.eyeR.y < -40, 'right eye high on face');
+
+  // Neck is between head center and body center
+  assert(R.neck.y > R.head.y, 'neck below head center');
+  assert(R.neck.y < R.body.y, 'neck above body center');
+  assert(R.neck.y < 0, 'neck above origin (not belly)');
+  // Scarf must not land near belly (old bug was y=28)
+  assert(R.neck.y < 5, 'neck not mid-torso');
+
+  // Crown above head center
+  assert(R.crown.y < R.head.y, 'crown above head');
+  assert(R.crown.y < R.eyeL.y, 'crown above eyes');
+
+  const g = T.accessoryAnchor('glasses');
+  assertClose(
+    g.x, (R.eyeL.x + R.eyeR.x) / 2, 0.01,
+    'glasses anchor X = mid eyes'
+  );
+  assertClose(
+    g.y, (R.eyeL.y + R.eyeR.y) / 2, 0.01,
+    'glasses anchor Y = mid eyes'
+  );
+  // Lenses must sit on eyes — not 30px below (old bug: translate y=-28 vs eyes y≈-57)
+  assert(Math.abs(g.y - R.eyeL.y) <= R.maxEyeLensOffset, 'glasses near left eye');
+  assert(Math.abs(g.y - R.eyeR.y) <= R.maxEyeLensOffset + 2, 'glasses near right eye');
+
+  const sc = T.accessoryAnchor('scarf');
+  assertClose(sc.x, R.neck.x, 0.01, 'scarf X = neck');
+  assertClose(sc.y, R.neck.y, 0.01, 'scarf Y = neck');
+  // Explicit regression: scarf must not be at old belt position (~28)
+  assert(sc.y < 0, 'scarf above waist (regression: was y=28 belt)');
+  assert(Math.abs(sc.y - R.body.y) > 15, 'scarf far from body center');
+
+  const h = T.accessoryAnchor('hat');
+  assertClose(h.x, R.crown.x, 0.01, 'hat X = crown');
+  assertClose(h.y, R.crown.y, 0.01, 'hat Y = crown');
+  assert(h.y < R.eyeL.y, 'hat above eyes');
+
+  // Source-level regression: drawers must call accessoryAnchor / DINO_RIG
+  const src = read('js/game.js');
+  assert(src.includes('DINO_RIG'), 'game.js defines DINO_RIG');
+  assert(src.includes("accessoryAnchor('scarf')"), 'scarf uses accessoryAnchor');
+  assert(src.includes("accessoryAnchor('hat')") || src.includes('accessoryAnchor("hat")'), 'hat uses accessoryAnchor');
+  assert(src.includes('DINO_RIG.eyeL'), 'eyes drawn from DINO_RIG');
+  // Old broken offsets must not return
+  assert(!/translate\(\s*0\s*,\s*28\s*\*\s*scale\s*\)/.test(src), 'no scarf translate(0, 28*scale)');
+  assert(!/translate\(\s*6\s*\*\s*scale\s*,\s*-28\s*\*\s*scale\s*\)/.test(src), 'no glasses translate(6, -28)');
+}
+
+function assertClose(a, b, eps, msg) {
+  assert(Math.abs(a - b) <= eps, `${msg} (got ${a}, expected ~${b})`);
 }
 
 console.log('\n');
